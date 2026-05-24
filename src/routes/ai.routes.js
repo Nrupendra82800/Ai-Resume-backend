@@ -1,0 +1,10 @@
+import express from 'express';
+import { generateProfileFromPrompt, improveSummary, suggestSkills, tailorForJob } from '../controllers/ai.controller.js';
+import { protect } from '../middleware/auth.middleware.js';
+const router = express.Router();
+router.use(protect);
+router.post('/generate', generateProfileFromPrompt);
+router.post('/improve-summary', improveSummary);
+router.post('/suggest-skills', suggestSkills);
+router.post('/tailor', tailorForJob);
+export default router;

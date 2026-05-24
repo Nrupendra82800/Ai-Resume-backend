@@ -1,0 +1,11 @@
+import express from 'express';
+import { getTemplates, getTemplate, createTemplate, updateTemplate, deleteTemplate, getAllTemplatesAdmin } from '../controllers/template.controller.js';
+import { adminOnly } from '../middleware/auth.middleware.js';
+const router = express.Router();
+router.get('/', getTemplates);
+router.get('/:id', getTemplate);
+router.get('/admin/all', adminOnly, getAllTemplatesAdmin);
+router.post('/admin', adminOnly, createTemplate);
+router.put('/admin/:id', adminOnly, updateTemplate);
+router.delete('/admin/:id', adminOnly, deleteTemplate);
+export default router;

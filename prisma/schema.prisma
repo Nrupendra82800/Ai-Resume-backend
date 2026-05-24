@@ -1,0 +1,252 @@
+// prisma/schema.prisma
+// MakeMyResume — Full Relational Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// USERS
+// ─────────────────────────────────────────────
+model User {
+  id             Int          @id @default(autoincrement())
+  name           String
+  email          String       @unique
+  password       String
+  isPremium      Boolean      @default(false)
+  profileStrength Int         @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  profile        Profile?
+  resumes        Resume[]
+  subscription   Subscription?
+  analytics      Analytics[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// PROFILES (Master Record — one per user)
+// ─────────────────────────────────────────────
+model Profile {
+  id                  Int       @id @default(autoincrement())
+  userId              Int       @unique
+  fullName            String    @default("")
+  jobTitle            String    @default("")
+  email               String    @default("")
+  phone               String    @default("")
+  location            String    @default("")
+  linkedin            String    @default("")
+  github              String    @default("")
+  website             String    @default("")
+  professionalSummary String    @default("")
+  isAiGenerated       Boolean   @default(false)
+  aiPromptUsed        String    @default("")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relations
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workExperiences     WorkExperience[]
+  educations          Education[]
+  skills              ProfileSkill[]
+  languages           ProfileLanguage[]
+  certifications      Certification[]
+
+  @@map("profiles")
+}
+
+model WorkExperience {
+  id          Int      @id @default(autoincrement())
+  profileId   Int
+  company     String   @default("")
+  role        String   @default("")
+  startDate   String   @default("")
+  endDate     String   @default("")
+  isCurrent   Boolean  @default(false)
+  description String   @default("")
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("work_experiences")
+}
+
+model Education {
+  id          Int      @id @default(autoincrement())
+  profileId   Int
+  institution String   @default("")
+  degree      String   @default("")
+  field       String   @default("")
+  startYear   String   @default("")
+  endYear     String   @default("")
+  grade       String   @default("")
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("educations")
+}
+
+model ProfileSkill {
+  id        Int     @id @default(autoincrement())
+  profileId Int
+  skill     String
+  sortOrder Int     @default(0)
+
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("profile_skills")
+}
+
+model ProfileLanguage {
+  id        Int     @id @default(autoincrement())
+  profileId Int
+  language  String
+
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("profile_languages")
+}
+
+model Certification {
+  id        Int     @id @default(autoincrement())
+  profileId Int
+  name      String
+  issuer    String  @default("")
+  year      String  @default("")
+
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("certifications")
+}
+
+// ─────────────────────────────────────────────
+// TEMPLATES
+// ─────────────────────────────────────────────
+model Template {
+  id             Int       @id @default(autoincrement())
+  name           String
+  category       String    // Modern, Professional, Creative, Minimalist, Executive
+  price          Int       @default(0)
+  isPremium      Boolean   @default(false)
+  accentColor    String    @default("#6366F1")
+  thumbnailColor String    @default("#6366F1")
+  description    String    @default("")
+  htmlTemplate   String    // Full HTML with {{placeholders}}
+  isActive       Boolean   @default(true)
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  resumes        Resume[]
+
+  @@map("templates")
+}
+
+// ─────────────────────────────────────────────
+// RESUMES (links user + template + snapshot)
+// ─────────────────────────────────────────────
+model Resume {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  templateId       Int
+  templateName     String   @default("")
+  title            String   @default("My Resume")
+  completionStatus Int      @default(0)
+
+  // Snapshot of profile at time of creation (JSON)
+  profileSnapshot  Json
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template         Template @relation(fields: [templateId], references: [id])
+  analytics        Analytics[]
+
+  @@map("resumes")
+}
+
+// ─────────────────────────────────────────────
+// SUBSCRIPTIONS
+// ─────────────────────────────────────────────
+model Subscription {
+  id               Int               @id @default(autoincrement())
+  userId           Int               @unique
+  plan             SubscriptionPlan  @default(FREE)
+  status           SubStatus         @default(ACTIVE)
+  startDate        DateTime          @default(now())
+  endDate          DateTime?
+  paymentId        String?           // Razorpay / Stripe payment ID
+  amountPaid       Int               @default(0) // in paise (INR)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+  LIFETIME
+}
+
+enum SubStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+// ─────────────────────────────────────────────
+// JOB DESCRIPTIONS (for AI tailoring feature)
+// ─────────────────────────────────────────────
+model JobDescription {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  title       String
+  company     String   @default("")
+  description String   // Full JD text
+  keywords    String[] // Extracted keywords
+  createdAt   DateTime @default(now())
+
+  @@map("job_descriptions")
+}
+
+// ─────────────────────────────────────────────
+// ANALYTICS
+// ─────────────────────────────────────────────
+model Analytics {
+  id         Int             @id @default(autoincrement())
+  userId     Int
+  resumeId   Int?
+  event      AnalyticsEvent
+  metadata   Json?           // extra data e.g. { templateName, format }
+  createdAt  DateTime        @default(now())
+
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resume     Resume?         @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+
+  @@map("analytics")
+}
+
+enum AnalyticsEvent {
+  RESUME_CREATED
+  RESUME_DOWNLOADED
+  RESUME_PREVIEWED
+  RESUME_DELETED
+  AI_GENERATED
+  TEMPLATE_VIEWED
+  PROFILE_UPDATED
+}
